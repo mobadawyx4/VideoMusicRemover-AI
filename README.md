@@ -2,6 +2,10 @@
 
 ![VideoMusicRemover AI - Application Preview](frontend/public/app-preview.webp)
 
+## 🎬 Watch the Demo
+
+[▶️ Watch the Full Demo Video](https://github.com/mobadawyx4/VideoMusicRemover-AI/raw/refs/heads/main/docs/videos/demo.mp4)
+
 ### Remove Background Music from Videos — Keep Speech and Natural Sounds
 
 VideoMusicRemover AI is a local AI-powered application that removes background music from videos while preserving human speech, dialogue, and environmental sounds.
