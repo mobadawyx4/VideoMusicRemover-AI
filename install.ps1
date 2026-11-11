@@ -219,7 +219,7 @@ $InstalledReqHash = if (Test-Path $ReqStamp) { (Get-Content $ReqStamp -Raw).Trim
 
 $ImportsOk = $false
 try {
-    & $VenvPython -c "import fastapi, uvicorn, torch, soundfile, huggingface_hub, safetensors, aiofiles, pytest, httpx" 2>$null
+    & $VenvPython -c "import fastapi, uvicorn, torch, soundfile, huggingface_hub, safetensors, aiofiles" 2>$null
     if ($LASTEXITCODE -eq 0) { $ImportsOk = $true }
 } catch {}
 
@@ -310,6 +310,7 @@ Write-Ok "React + Vite frontend verified"
 Write-Host ""
 Write-Host "SUCCESS:" -ForegroundColor Green
 Write-Host "VideoMusicRemover AI installation completed!" -ForegroundColor White
+Write-Host "SilentTrack AI is ready!" -ForegroundColor Green
 Write-Host ""
 
 if (-not $NoLaunch.IsPresent) {

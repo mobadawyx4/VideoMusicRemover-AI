@@ -189,7 +189,7 @@ if [ -f "$REQ_STAMP" ]; then
 fi
 
 BACKEND_IMPORTS_OK=false
-if "$VENV_DIR/bin/python" -c "import fastapi, uvicorn, torch, soundfile, huggingface_hub, safetensors, aiofiles, pytest, httpx" >/dev/null 2>&1; then
+if "$VENV_DIR/bin/python" -c "import fastapi, uvicorn, torch, soundfile, huggingface_hub, safetensors, aiofiles" >/dev/null 2>&1; then
   BACKEND_IMPORTS_OK=true
 fi
 
@@ -270,6 +270,7 @@ test -x "$FRONTEND_DIR/node_modules/.bin/vite" && ok "React + Vite frontend veri
 echo ""
 echo -e "${GREEN}${BOLD}SUCCESS:${RESET}"
 echo -e "${BOLD}VideoMusicRemover AI installation completed!${RESET}"
+echo -e "${GREEN}SilentTrack AI is ready!${RESET}"
 echo ""
 
 if [ "$AUTO_LAUNCH" = true ]; then
