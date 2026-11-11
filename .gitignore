@@ -21,10 +21,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Runtime PIDs & Logs
+.runtime/
+*.pid
+*.log
+
 # AI Model Weights, Temporary Videos & Generated Job Outputs
-data/models/
-data/jobs/
-data/tmp/
+data/
 *.safetensors
 *.ckpt
 *.pt
@@ -40,6 +43,7 @@ data/tmp/
 # Bundled Static Binaries (FFmpeg)
 tools/ffmpeg/ffmpeg
 tools/ffmpeg/ffprobe
+tools/ffmpeg/*.exe
 
 # Environment & Secrets
 .env

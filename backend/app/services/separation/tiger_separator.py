@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import time
 from pathlib import Path
 from typing import Callable, Optional
 
 import numpy as np
 import torch
+from huggingface_hub import snapshot_download
 
 from app.core.config import settings
 from app.core.schemas import ProcessOptions, SeparationMode, StemMetrics
@@ -43,6 +45,13 @@ class TigerSeparatorService:
     def device(self) -> str:
         return self._device
 
+    def check_available_disk_space_mb(self, target_dir: Optional[Path] = None) -> float:
+        """Return free disk space in megabytes for target_dir (defaults to MODELS_DIR)."""
+        check_path = target_dir or settings.MODELS_DIR
+        check_path.mkdir(parents=True, exist_ok=True)
+        usage = shutil.disk_usage(str(check_path))
+        return round(usage.free / (1024 * 1024), 1)
+
     def find_local_snapshot(self) -> Optional[Path]:
         """Locate cached HuggingFace snapshot directory for JusperLee/TIGER-DnR."""
         models_dir = settings.MODELS_DIR
@@ -55,38 +64,76 @@ class TigerSeparatorService:
                     or (snap / "pytorch_model.bin").is_file()
                 ):
                     return snap
+        # Also allow direct config.json + model.safetensors inside MODELS_DIR/TIGER-DnR
+        direct_dir = models_dir / "TIGER-DnR"
+        if (direct_dir / "config.json").is_file() and (
+            (direct_dir / "model.safetensors").is_file()
+            or (direct_dir / "pytorch_model.bin").is_file()
+        ):
+            return direct_dir
         return None
 
     def is_model_available(self) -> bool:
         return self.find_local_snapshot() is not None
 
+    def ensure_model_cached(self) -> Path:
+        """Ensure TIGER-DnR model weights are cached locally; download once if missing."""
+        existing = self.find_local_snapshot()
+        if existing is not None:
+            return existing
+
+        free_mb = self.check_available_disk_space_mb(settings.MODELS_DIR)
+        if free_mb < settings.MIN_DISK_SPACE_MB:
+            raise SeparationError(
+                f"Insufficient disk space to download AI model weights. "
+                f"Available: {free_mb:.0f} MB, Required: at least {settings.MIN_DISK_SPACE_MB} MB."
+            )
+
+        logger.info(
+            "Downloading AI model '%s' into local cache (%s)...",
+            settings.MODEL_REPO_ID,
+            settings.MODELS_DIR,
+        )
+        try:
+            downloaded_path = snapshot_download(
+                repo_id=settings.MODEL_REPO_ID,
+                cache_dir=str(settings.MODELS_DIR),
+                resume_download=True,
+            )
+            snap = Path(downloaded_path)
+            if not (snap / "config.json").is_file():
+                found = self.find_local_snapshot()
+                if found is not None:
+                    return found
+                raise SeparationError(
+                    "Downloaded model snapshot is incomplete (missing config.json)."
+                )
+            return snap
+        except SeparationError:
+            raise
+        except Exception as exc:
+            raise SeparationError(
+                f"Could not download AI model '{settings.MODEL_REPO_ID}'. "
+                f"Please verify your internet connection for the initial download, "
+                f"or place cached weights in '{settings.MODELS_DIR}'. Details: {exc}"
+            ) from exc
+
     def load_model(self) -> TIGERDNR:
-        """Lazy-load TIGER-DnR model weights onto target device."""
+        """Lazy-load TIGER-DnR model weights onto target device (offline-capable once cached)."""
         if self._model is not None:
             return self._model
 
-        snap = self.find_local_snapshot()
+        snap = self.ensure_model_cached()
         try:
             t0 = time.time()
-            if snap is not None:
-                logger.info("Loading TIGER-DnR weights from local snapshot: %s", snap)
-                model = TIGERDNR.from_pretrained(str(snap))
-                self._model_path = snap
-            else:
-                logger.info(
-                    "Downloading TIGER-DnR weights from HuggingFace Hub (%s)...",
-                    settings.MODEL_REPO_ID,
-                )
-                model = TIGERDNR.from_pretrained(
-                    settings.MODEL_REPO_ID,
-                    cache_dir=str(settings.MODELS_DIR),
-                )
+            logger.info("Loading TIGER-DnR weights from local cache: %s", snap)
+            model = TIGERDNR.from_pretrained(str(snap), local_files_only=True)
+            self._model_path = snap
 
             # Attempt to move to device; fallback to CPU if GPU lacks memory or CUDA arch support
             if self._device == "cuda":
                 try:
                     model = model.to("cuda")
-                    # Quick smoke test on GPU
                     test_x = torch.zeros(1, 1, 4096, device="cuda")
                     with torch.no_grad():
                         _ = model.dialog(test_x)
@@ -148,7 +195,7 @@ class TigerSeparatorService:
         out_speech = np.zeros(total_samples, dtype=np.float32)
         weight_sum = np.zeros(total_samples, dtype=np.float32)
 
-        # Raised cosine (Tukey-like) crossfade window for seamless chunk boundaries
+        # Raised cosine crossfade window for seamless chunk boundaries
         window = np.ones(chunk_samples, dtype=np.float32)
         if overlap_samples > 0:
             fade = np.linspace(0.0, 1.0, overlap_samples, dtype=np.float32)
@@ -204,10 +251,7 @@ class TigerSeparatorService:
         effects_mid: np.ndarray,
         music_mid: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Project separated mid stems onto stereo (2, T) channels via STFT Wiener ratio masking.
-
-        Preserves exact stereo panning and ensures speech_st + effects_st + music_st == stereo_audio.
-        """
+        """Project separated mid stems onto stereo (2, T) channels via STFT Wiener ratio masking."""
         n_fft = 2048
         hop = 512
         win = torch.hann_window(n_fft)
@@ -254,6 +298,12 @@ class TigerSeparatorService:
         and reconstruct the music-removed audio track according to ProcessOptions.
         """
         t_start = time.time()
+        free_mb = self.check_available_disk_space_mb(output_dir)
+        if free_mb < 100:
+            raise SeparationError(
+                f"Low disk space ({free_mb:.0f} MB free). At least 100 MB is required to process audio stems."
+            )
+
         if progress_callback:
             progress_callback(2.0, "Loading TIGER-DnR neural audio separation model...")
 
@@ -286,7 +336,6 @@ class TigerSeparatorService:
             )
         elif mode == SeparationMode.HIGH_QUALITY:
             chunk_sec, overlap_sec = 8.0, 2.0
-            # Run dedicated dialog, effect, and music submodels
             s_d, _, _ = self._infer_mono_chunked(
                 model.dialog,
                 mono_mix,
@@ -325,7 +374,6 @@ class TigerSeparatorService:
             )
             speech_m, effects_m, music_m = s_d, e_e, m_m
         else:
-            # BALANCED mode: overlap-add chunking with single conservation-preserving TIGER-DnR pass
             chunk_sec, overlap_sec = 8.0, 1.5
             speech_m, effects_m, music_m = self._infer_mono_chunked(
                 model.music,

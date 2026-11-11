@@ -20,15 +20,17 @@ def _resolve_binary(name: str, env_var: str) -> str:
     if explicit and Path(explicit).is_file():
         return str(Path(explicit).resolve())
 
-    bundled = PROJECT_ROOT / "tools" / "ffmpeg" / name
-    if bundled.is_file() and os.access(bundled, os.X_OK):
-        return str(bundled.resolve())
+    # Check Windows .exe as well as POSIX binary name inside tools/ffmpeg
+    for candidate_name in (name, f"{name}.exe"):
+        bundled = PROJECT_ROOT / "tools" / "ffmpeg" / candidate_name
+        if bundled.is_file():
+            return str(bundled.resolve())
 
     found = shutil.which(name)
     if found:
         return found
 
-    return str(bundled)
+    return str(PROJECT_ROOT / "tools" / "ffmpeg" / name)
 
 
 class Settings(BaseSettings):
@@ -43,8 +45,13 @@ class Settings(BaseSettings):
     APP_NAME: str = "SilentTrack AI"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
-    HOST: str = "0.0.0.0"
+
+    # Network & Localhost Security Settings (localhost by default)
+    HOST: str = "127.0.0.1"
     PORT: int = 8000
+    FRONTEND_HOST: str = "127.0.0.1"
+    FRONTEND_PORT: int = 5173
+    ENABLE_LAN_ACCESS: bool = False
 
     # CORS settings
     CORS_ORIGINS: list[str] = Field(
@@ -69,6 +76,7 @@ class Settings(BaseSettings):
     DATA_DIR: Path = Field(default_factory=lambda: PROJECT_ROOT / "data")
     JOBS_DIR: Path = Field(default_factory=lambda: PROJECT_ROOT / "data" / "jobs")
     MODELS_DIR: Path = Field(default_factory=lambda: PROJECT_ROOT / "data" / "models")
+    MIN_DISK_SPACE_MB: int = 300
 
     # Automatic temporary file cleanup
     JOB_TTL_SECONDS: int = 3600  # 1 hour retention by default
@@ -91,6 +99,14 @@ class Settings(BaseSettings):
     FFPROBE_PATH: str = Field(
         default_factory=lambda: _resolve_binary("ffprobe", "FFPROBE_PATH")
     )
+
+    @property
+    def effective_backend_host(self) -> str:
+        return "0.0.0.0" if self.ENABLE_LAN_ACCESS else self.HOST
+
+    @property
+    def effective_frontend_host(self) -> str:
+        return "0.0.0.0" if self.ENABLE_LAN_ACCESS else self.FRONTEND_HOST
 
     @property
     def max_upload_size_bytes(self) -> int:

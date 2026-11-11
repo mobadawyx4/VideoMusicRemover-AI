@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import subprocess
 import time
 from pathlib import Path
 
@@ -9,6 +11,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import PROJECT_ROOT
 from app.core.schemas import ProcessOptions, SeparationMode
 from app.core.security import sanitize_filename, validate_job_id
 from app.main import app
@@ -19,6 +22,7 @@ from app.services.media_service import (
     extract_audio_from_video,
     inspect_video,
 )
+from app.services.separation import separator_service
 
 
 @pytest.fixture(scope="module")
@@ -48,6 +52,62 @@ def test_security_helpers() -> None:
     assert sanitize_filename("../../evil name!@#.mp4") == "evil_name.mp4"
     assert sanitize_filename("clip.mov") == "clip.mov"
     assert sanitize_filename("bad.exe") == "bad.mp4"
+
+
+def test_cross_platform_scripts_and_model_cache() -> None:
+    # Verify model cache and disk space helpers
+    free_mb = separator_service.check_available_disk_space_mb()
+    assert free_mb > 100
+    cached_path = separator_service.ensure_model_cached()
+    assert cached_path.is_dir()
+    assert (cached_path / "config.json").is_file()
+
+    # Verify Linux Bash scripts exist and pass bash -n syntax validation
+    bash_scripts = [
+        "install.sh",
+        "start.sh",
+        "stop.sh",
+        "update.sh",
+        "scripts/start_dev.sh",
+    ]
+    for rel in bash_scripts:
+        script_path = PROJECT_ROOT / rel
+        assert script_path.is_file(), f"Missing script: {rel}"
+        res = subprocess.run(
+            ["bash", "-n", str(script_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert res.returncode == 0, f"bash -n failed for {rel}: {res.stderr}"
+
+    # Verify Windows PowerShell scripts exist and pass structural/delimiter validation
+    ps_scripts = ["install.ps1", "start.ps1", "stop.ps1", "update.ps1"]
+    for name in ps_scripts:
+        ps_path = PROJECT_ROOT / name
+        assert ps_path.is_file(), f"Missing PowerShell script: {name}"
+        text = ps_path.read_text(encoding="utf-8")
+        no_block = re.sub(r"<#.*?#>", "", text, flags=re.S)
+        no_str = re.sub(r"\"(?:\\.|[^\"])*\"|'[^']*'", "\"\"", no_block)
+        clean = "\n".join(re.sub(r"#.*$", "", ln) for ln in no_str.splitlines())
+        assert text.count("<#") == text.count("#>")
+        assert clean.count("{") == clean.count("}")
+        assert clean.count("(") == clean.count(")")
+        assert clean.count("[") == clean.count("]")
+
+    # Verify required user-facing step messages in install.sh and install.ps1
+    for installer in ("install.sh", "install.ps1"):
+        content = (PROJECT_ROOT / installer).read_text(encoding="utf-8")
+        for step in (
+            "[1/5] Checking prerequisites...",
+            "[2/5] Setting up Python environment...",
+            "[3/5] Installing backend dependencies...",
+            "[4/5] Installing frontend dependencies...",
+            "[5/5] Validating installation...",
+            "SilentTrack AI is ready!",
+            "http://localhost:5173",
+        ):
+            assert step in content, f"Missing '{step}' in {installer}"
 
 
 def test_upload_validation_errors(client: TestClient) -> None:
