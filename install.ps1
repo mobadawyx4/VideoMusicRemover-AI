@@ -10,7 +10,8 @@
 [CmdletBinding()]
 param(
     [switch]$AutoInstallFfmpeg,
-    [switch]$NonInteractive
+    [switch]$NonInteractive,
+    [switch]$NoLaunch
 )
 
 $ErrorActionPreference = "Stop"
@@ -308,11 +309,19 @@ Write-Ok "React + Vite frontend verified"
 
 Write-Host ""
 Write-Host "SUCCESS:" -ForegroundColor Green
-Write-Host "SilentTrack AI is ready!" -ForegroundColor White
+Write-Host "VideoMusicRemover AI installation completed!" -ForegroundColor White
 Write-Host ""
-Write-Host "Start the application with:"
-Write-Host "  .\start.ps1" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Open:"
-Write-Host "  http://localhost:5173" -ForegroundColor Cyan
+
+if (-not $NoLaunch.IsPresent) {
+    Write-Host "Starting the application automatically..." -ForegroundColor Cyan
+    Write-Host ""
+    & (Join-Path $RootDir "start.ps1")
+    if (-not $?) {
+        Exit-WithError "Application startup failed."
+    }
+} else {
+    Write-Host "Installation completed without launching."
+    Write-Host "To start later, run: .\start.ps1" -ForegroundColor Cyan
+    Write-Host "Application URL: http://localhost:5173" -ForegroundColor Cyan
+}
 Write-Host ""

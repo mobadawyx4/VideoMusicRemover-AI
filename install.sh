@@ -5,6 +5,23 @@
 # ============================================================================
 set -euo pipefail
 
+# Installer options
+AUTO_LAUNCH=true
+for arg in "$@"; do
+  case "$arg" in
+    --no-launch) AUTO_LAUNCH=false ;;
+    -h|--help)
+      echo "Usage: ./install.sh [--no-launch]"
+      echo "  --no-launch  Install without starting the application"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $arg"
+      exit 2
+      ;;
+  esac
+done
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
@@ -252,11 +269,16 @@ test -x "$FRONTEND_DIR/node_modules/.bin/vite" && ok "React + Vite frontend veri
 
 echo ""
 echo -e "${GREEN}${BOLD}SUCCESS:${RESET}"
-echo -e "${BOLD}SilentTrack AI is ready!${RESET}"
+echo -e "${BOLD}VideoMusicRemover AI installation completed!${RESET}"
 echo ""
-echo -e "Start the application with:"
-echo -e "  ${CYAN}./start.sh${RESET}"
-echo ""
-echo -e "Open:"
-echo -e "  ${CYAN}http://localhost:5173${RESET}"
+
+if [ "$AUTO_LAUNCH" = true ]; then
+  echo -e "${CYAN}Starting the application automatically...${RESET}"
+  echo ""
+  "$ROOT_DIR/start.sh"
+else
+  echo "Installation completed without launching."
+  echo "To start later, run: ./start.sh"
+  echo "Application URL: http://localhost:5173"
+fi
 echo ""
