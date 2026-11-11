@@ -313,3 +313,10 @@ https://github.com/mobadawyx4/VideoMusicRemover-AI
 ---
 
 Made with ❤️ for creators.
+---
+
+## 🎬 Watch the Demo
+
+See VideoMusicRemover AI in action:
+
+<video src="docs/videos/demo.mp4" controls width="100%"></video>
