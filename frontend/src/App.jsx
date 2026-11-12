@@ -260,7 +260,7 @@ export default function App() {
           </h1>
 
           <p className="mt-4 text-sm sm:text-base text-slate-300 leading-relaxed">
-            SilentTrack AI uses deep time-frequency source separation to split
+            VideoMusicRemover AI uses deep time-frequency source separation to split
             your video&apos;s soundtrack into{" "}
             <strong className="text-white font-semibold">Human Speech</strong>,{" "}
             <strong className="text-white font-semibold">
@@ -828,7 +828,7 @@ export default function App() {
       <footer className="mt-12 border-t border-white/10 bg-obsidian-950/90 py-6 text-center text-xs text-slate-500">
         <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="font-semibold text-slate-400">
-            SilentTrack AI — Production Neural Video Music Remover
+            VideoMusicRemover AI — Production Neural Video Music Remover
           </p>
           <p>
             Powered by FastAPI • PyTorch • TIGER-DnR • FFmpeg • React &amp;

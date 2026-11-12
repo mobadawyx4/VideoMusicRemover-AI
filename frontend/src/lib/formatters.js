@@ -1,5 +1,5 @@
 /**
- * Formatting helpers for SilentTrack AI UI
+ * Formatting helpers for VideoMusicRemover AI UI
  */
 
 export function formatBytes(bytes) {

@@ -8,7 +8,7 @@ export default function Navbar({ health }) {
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-obsidian-950/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
-        {/* Brand Logo: SilentTrack AI */}
+        {/* Brand Logo: VideoMusicRemover AI */}
         <a href="#top" className="flex items-center gap-3 group">
           <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 via-violet-600 to-cyan-500 p-[1px] shadow-lg shadow-purple-500/25">
             <div className="flex h-full w-full items-center justify-center rounded-[11px] bg-obsidian-900/90 transition group-hover:bg-transparent">
