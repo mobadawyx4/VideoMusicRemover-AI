@@ -70,6 +70,19 @@ export async function createDemoVideoJob() {
   return data;
 }
 
+export async function importVideoFromUrl(url) {
+  const res = await fetch(`${API_BASE}/api/jobs/from-url`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.detail || `Failed to download video from URL (${res.status})`);
+  }
+  return data;
+}
+
 export async function startVideoProcessing(jobId, token, options) {
   const query = token ? `?token=${encodeURIComponent(token)}` : "";
   const res = await fetch(`${API_BASE}/api/jobs/${jobId}/process${query}`, {

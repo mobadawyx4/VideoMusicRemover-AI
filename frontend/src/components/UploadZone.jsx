@@ -1,7 +1,10 @@
 import React, { useRef, useState } from "react";
 import {
+  AlertCircle,
+  Download,
   FileVideo,
-  Film,
+  Globe,
+  Link2,
   Loader2,
   Sparkles,
   UploadCloud,
@@ -9,21 +12,36 @@ import {
 } from "lucide-react";
 
 const SUPPORTED_FORMATS = ["MP4", "MOV", "MKV", "WEBM"];
+const SUPPORTED_PLATFORMS = [
+  "YouTube",
+  "TikTok",
+  "Instagram",
+  "Facebook",
+  "X / Twitter",
+  "Vimeo",
+  "Direct Links",
+];
 
 export default function UploadZone({
   onSelectFile,
   onLoadDemo,
+  onImportUrl,
   isUploading,
+  isImportingUrl = false,
   uploadProgress,
   maxUploadMb = 500,
 }) {
   const inputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
+  const [inputError, setInputError] = useState("");
+
+  const isBusy = isUploading || isImportingUrl;
 
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isUploading) setIsDragging(true);
+    if (!isBusy) setIsDragging(true);
   };
 
   const handleDragLeave = (e) => {
@@ -36,7 +54,7 @@ export default function UploadZone({
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    if (isUploading) return;
+    if (isBusy) return;
     const files = e.dataTransfer?.files;
     if (files && files.length > 0) {
       onSelectFile(files[0]);
@@ -50,105 +68,212 @@ export default function UploadZone({
     }
   };
 
+  const handleUrlSubmit = (e) => {
+    e.preventDefault();
+    setInputError("");
+    const trimmed = urlInput.trim();
+    if (!trimmed) {
+      setInputError("Please enter a video URL.");
+      return;
+    }
+    if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+      setInputError("Please enter a valid HTTP or HTTPS video URL.");
+      return;
+    }
+    if (onImportUrl) {
+      onImportUrl(trimmed);
+    }
+  };
+
   return (
-    <div
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      onClick={() => !isUploading && inputRef.current?.click()}
-      className={`group relative cursor-pointer overflow-hidden rounded-3xl border-2 border-dashed p-8 sm:p-12 transition-all duration-300 ${
-        isDragging
-          ? "border-cyan-400 bg-gradient-to-b from-purple-900/30 via-obsidian-900 to-cyan-900/30 scale-[1.01] shadow-2xl shadow-cyan-500/20"
-          : "border-white/15 bg-obsidian-900/75 hover:border-purple-400/60 hover:bg-obsidian-900/95 shadow-xl shadow-black/40"
-      }`}
-    >
-      {/* Decorative Background Glow */}
-      <div className="pointer-events-none absolute -top-24 left-1/2 h-48 w-96 -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-600/20 via-violet-500/20 to-cyan-500/20 blur-3xl transition-opacity duration-300 group-hover:opacity-100 opacity-60" />
+    <div className="space-y-6">
+      {/* File Upload / Drag & Drop Card */}
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => !isBusy && inputRef.current?.click()}
+        className={`group relative cursor-pointer overflow-hidden rounded-3xl border-2 border-dashed p-8 sm:p-12 transition-all duration-300 ${
+          isDragging
+            ? "border-cyan-400 bg-gradient-to-b from-purple-900/30 via-obsidian-900 to-cyan-900/30 scale-[1.01] shadow-2xl shadow-cyan-500/20"
+            : "border-white/15 bg-obsidian-900/75 hover:border-purple-400/60 hover:bg-obsidian-900/95 shadow-xl shadow-black/40"
+        }`}
+      >
+        {/* Decorative Background Glow */}
+        <div className="pointer-events-none absolute -top-24 left-1/2 h-48 w-96 -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-600/20 via-violet-500/20 to-cyan-500/20 blur-3xl transition-opacity duration-300 group-hover:opacity-100 opacity-60" />
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".mp4,.mov,.mkv,.webm,video/mp4,video/quicktime,video/x-matroska,video/webm"
-        onChange={handleFileChange}
-        className="hidden"
-        aria-label="Upload video file"
-      />
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".mp4,.mov,.mkv,.webm,video/mp4,video/quicktime,video/x-matroska,video/webm"
+          onChange={handleFileChange}
+          className="hidden"
+          aria-label="Upload video file"
+          disabled={isBusy}
+        />
 
-      <div className="relative z-10 flex flex-col items-center text-center">
-        <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/20 via-obsidian-800 to-cyan-500/20 shadow-inner transition-transform duration-300 group-hover:scale-105">
+        <div className="relative z-10 flex flex-col items-center text-center">
+          <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/20 via-obsidian-800 to-cyan-500/20 shadow-inner transition-transform duration-300 group-hover:scale-105">
+            {isUploading ? (
+              <Loader2 className="h-10 w-10 animate-spin text-cyan-400" />
+            ) : (
+              <UploadCloud className="h-10 w-10 text-purple-400 transition-colors group-hover:text-cyan-300" />
+            )}
+          </div>
+
+          <h2 className="text-xl sm:text-2xl font-bold text-white">
+            {isUploading
+              ? "Uploading & Validating Video..."
+              : isDragging
+              ? "Drop Your Video Here to Begin"
+              : "Drag & Drop Your Video File Here"}
+          </h2>
+
+          <p className="mt-2 max-w-lg text-sm text-slate-400">
+            Automatically isolate and strip background music while preserving clear
+            human dialogue, vocals, and natural environmental sound effects.
+          </p>
+
+          {/* Format Badges */}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            {SUPPORTED_FORMATS.map((fmt) => (
+              <span
+                key={fmt}
+                className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-xs font-medium text-slate-300"
+              >
+                .{fmt}
+              </span>
+            ))}
+            <span className="rounded-lg border border-purple-500/25 bg-purple-500/10 px-2.5 py-1 text-xs font-medium text-purple-300">
+              Up to {maxUploadMb} MB
+            </span>
+          </div>
+
+          {/* Upload Progress or Action Buttons */}
           {isUploading ? (
-            <Loader2 className="h-10 w-10 animate-spin text-cyan-400" />
+            <div className="mt-7 w-full max-w-md">
+              <div className="mb-2 flex items-center justify-between text-xs font-mono text-cyan-300">
+                <span>Streaming video to workspace...</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-purple-500 via-violet-500 to-cyan-400 transition-all duration-200"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
           ) : (
-            <UploadCloud className="h-10 w-10 text-purple-400 transition-colors group-hover:text-cyan-300" />
+            <div
+              className="mt-7 flex flex-wrap items-center justify-center gap-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                disabled={isBusy}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-violet-600 to-cyan-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-600/30 transition hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileVideo className="h-4 w-4" />
+                <span>Upload Video</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onLoadDemo}
+                disabled={isBusy}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-400/50 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Wand2 className="h-4 w-4 text-cyan-400" />
+                <span>Try Instant Sample Video</span>
+              </button>
+            </div>
           )}
         </div>
+      </div>
 
-        <h2 className="text-xl sm:text-2xl font-bold text-white">
-          {isUploading
-            ? "Uploading & Validating Video..."
-            : isDragging
-            ? "Drop Your Video Here to Begin"
-            : "Drag & Drop Your Video File Here"}
-        </h2>
+      {/* URL Import Section */}
+      <div className="overflow-hidden rounded-3xl border border-white/10 bg-obsidian-900/80 p-6 sm:p-8 shadow-xl shadow-black/40">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-white/10 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-400">
+              <Globe className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">
+                Import from Video Link
+              </h3>
+              <p className="text-xs text-slate-400">
+                Paste a public video link from supported platforms or direct video URLs
+              </p>
+            </div>
+          </div>
 
-        <p className="mt-2 max-w-lg text-sm text-slate-400">
-          Automatically isolate and strip background music while preserving clear
-          human dialogue, vocals, and natural environmental sound effects.
-        </p>
-
-        {/* Format Badges */}
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-          {SUPPORTED_FORMATS.map((fmt) => (
-            <span
-              key={fmt}
-              className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-xs font-medium text-slate-300"
-            >
-              .{fmt}
-            </span>
-          ))}
-          <span className="rounded-lg border border-purple-500/25 bg-purple-500/10 px-2.5 py-1 text-xs font-medium text-purple-300">
-            Up to {maxUploadMb} MB
-          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {SUPPORTED_PLATFORMS.map((plat) => (
+              <span
+                key={plat}
+                className="rounded-md border border-white/5 bg-white/[0.03] px-2 py-0.5 text-[11px] font-medium text-slate-300"
+              >
+                {plat}
+              </span>
+            ))}
+          </div>
         </div>
 
-        {/* Upload Progress or Action Buttons */}
-        {isUploading ? (
-          <div className="mt-7 w-full max-w-md">
-            <div className="mb-2 flex items-center justify-between text-xs font-mono text-cyan-300">
-              <span>Streaming video to workspace...</span>
-              <span>{uploadProgress}%</span>
-            </div>
-            <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-purple-500 via-violet-500 to-cyan-400 transition-all duration-200"
-                style={{ width: `${uploadProgress}%` }}
+        {/* URL Input Form */}
+        <form onSubmit={handleUrlSubmit} className="mt-5 space-y-3">
+          <div className="flex flex-col sm:flex-row items-stretch gap-3">
+            <div className="relative flex-1">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+                <Link2 className="h-4 w-4" />
+              </div>
+              <input
+                type="url"
+                value={urlInput}
+                onChange={(e) => {
+                  setUrlInput(e.target.value);
+                  if (inputError) setInputError("");
+                }}
+                disabled={isBusy}
+                placeholder="Paste a YouTube or video platform link..."
+                className="w-full rounded-2xl border border-white/15 bg-obsidian-950/80 pl-11 pr-4 py-3.5 text-sm text-white placeholder-slate-500 shadow-inner outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Video URL input"
               />
             </div>
-          </div>
-        ) : (
-          <div
-            className="mt-7 flex flex-wrap items-center justify-center gap-3"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-violet-600 to-cyan-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-600/30 transition hover:brightness-110 active:scale-[0.99]"
-            >
-              <FileVideo className="h-4 w-4" />
-              <span>Upload Video</span>
-            </button>
 
             <button
-              type="button"
-              onClick={onLoadDemo}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-400/50 hover:bg-white/10 hover:text-white"
+              type="submit"
+              disabled={isBusy || !urlInput.trim()}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 via-violet-600 to-cyan-500 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-purple-600/30 transition hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Wand2 className="h-4 w-4 text-cyan-400" />
-              <span>Try Instant Sample Video</span>
+              {isImportingUrl ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Downloading Video...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  <span>Download Video</span>
+                </>
+              )}
             </button>
           </div>
-        )}
+
+          {/* Inline Validation / Error Message */}
+          {inputError && (
+            <div className="flex items-center gap-2 text-xs text-rose-400 mt-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{inputError}</span>
+            </div>
+          )}
+
+          {/* Legal / Platform Note */}
+          <p className="text-[11px] leading-relaxed text-slate-400 pt-1">
+            <span className="text-slate-300 font-semibold">Note:</span> Supports publicly accessible videos or authorized downloads across YouTube, Vimeo, TikTok, X (Twitter), Facebook, and direct media URLs. Private videos, DRM-protected streams, and accounts requiring login credentials cannot be downloaded.
+          </p>
+        </form>
       </div>
     </div>
   );

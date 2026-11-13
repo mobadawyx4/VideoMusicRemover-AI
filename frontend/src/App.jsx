@@ -33,6 +33,7 @@ import {
   deleteJob,
   fetchHealth,
   fetchJobStatus,
+  importVideoFromUrl,
   remixJobAudio,
   resolveMediaUrl,
   startVideoProcessing,
@@ -54,6 +55,7 @@ export default function App() {
   const [jobToken, setJobToken] = useState(null);
 
   const [isUploading, setIsUploading] = useState(false);
+  const [isImportingUrl, setIsImportingUrl] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isStartingProcess, setIsStartingProcess] = useState(false);
   const [isRemixing, setIsRemixing] = useState(false);
@@ -148,6 +150,29 @@ export default function App() {
       setErrorMsg(err.message || "Could not create sample video.");
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleImportUrl = async (url) => {
+    if (!url) return;
+    setErrorMsg(null);
+    setIsImportingUrl(true);
+    try {
+      const createdJob = await importVideoFromUrl(url);
+      setJob(createdJob);
+      setJobToken(createdJob.access_token);
+      setVideoPreviewMode("original");
+      setMusicRemovalStrength(
+        Math.round((createdJob.options?.music_removal_strength ?? 1.0) * 100)
+      );
+      setSpeechGain(Math.round((createdJob.options?.speech_gain ?? 1.0) * 100));
+      setEffectsGain(
+        Math.round((createdJob.options?.effects_gain ?? 1.0) * 100)
+      );
+    } catch (err) {
+      setErrorMsg(err.message || "Failed to download and import video from URL.");
+    } finally {
+      setIsImportingUrl(false);
     }
   };
 
@@ -303,7 +328,9 @@ export default function App() {
           <UploadZone
             onSelectFile={handleSelectFile}
             onLoadDemo={handleLoadDemo}
+            onImportUrl={handleImportUrl}
             isUploading={isUploading}
+            isImportingUrl={isImportingUrl}
             uploadProgress={uploadProgress}
             maxUploadMb={health?.max_upload_size_mb || 500}
           />

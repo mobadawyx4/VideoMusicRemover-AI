@@ -84,6 +84,14 @@ class RemixRequest(BaseModel):
     effects_gain: float = Field(default=1.0, ge=0.0, le=2.0)
 
 
+class UrlImportRequest(BaseModel):
+    url: str = Field(
+        ...,
+        min_length=1,
+        description="Public HTTP or HTTPS video URL to download and process",
+    )
+
+
 class WaveformData(BaseModel):
     original_peaks: list[float] = Field(default_factory=list)
     processed_peaks: list[float] = Field(default_factory=list)

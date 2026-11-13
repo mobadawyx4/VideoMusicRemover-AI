@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import shutil
 import uuid
 from pathlib import Path
@@ -17,12 +18,14 @@ from app.core.schemas import (
     JobResponse,
     ProcessOptions,
     RemixRequest,
+    UrlImportRequest,
 )
 from app.core.security import resolve_job_dir, sanitize_filename, verify_job_token
 from app.services.demo_service import generate_sample_video
 from app.services.job_manager import job_manager
 from app.services.media_service import MediaProcessingError, check_ffmpeg_installed
 from app.services.separation import separator_service
+from app.services.url_service import import_video_from_url
 
 router = APIRouter(prefix="/api", tags=["SilentTrack AI"])
 
@@ -143,6 +146,16 @@ async def create_demo_job() -> JobResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Could not create sample video: {exc}",
         ) from exc
+
+
+@router.post(
+    "/jobs/from-url",
+    response_model=JobResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_job_from_url(req: UrlImportRequest) -> JobResponse:
+    """Download video from YouTube, social platforms, or direct HTTP/HTTPS link and initialize a job."""
+    return await asyncio.to_thread(import_video_from_url, req.url)
 
 
 @router.post("/jobs/{job_id}/process", response_model=JobResponse)
