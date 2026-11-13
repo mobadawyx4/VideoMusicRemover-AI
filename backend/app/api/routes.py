@@ -1,4 +1,4 @@
-"""API endpoints for SilentTrack AI."""
+"""API endpoints for VideoMusicRemover AI."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from app.services.media_service import MediaProcessingError, check_ffmpeg_instal
 from app.services.separation import separator_service
 from app.services.url_service import import_video_from_url
 
-router = APIRouter(prefix="/api", tags=["SilentTrack AI"])
+router = APIRouter(prefix="/api", tags=["VideoMusicRemover AI"])
 
 CHUNK_SIZE = 1024 * 1024  # 1 MB streaming chunks
 

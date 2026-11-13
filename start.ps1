@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    SilentTrack AI — One-Command Windows PowerShell Startup Script
+    VideoMusicRemover AI — One-Command Windows PowerShell Startup Script
 .DESCRIPTION
     Verifies installation, starts the FastAPI backend on http://127.0.0.1:8000
     and the React/Vite frontend on http://localhost:5173, checks health,
@@ -71,7 +71,7 @@ if ((Test-Path (Join-Path $RuntimeDir "backend.pid")) -or (Test-Path (Join-Path 
 }
 
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  Starting SilentTrack AI" -ForegroundColor White
+Write-Host "  Starting VideoMusicRemover AI" -ForegroundColor White
 Write-Host "============================================================" -ForegroundColor Cyan
 
 # 2. Start FastAPI Backend
@@ -164,7 +164,7 @@ Write-Host "  [OK] Frontend server is online" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "SUCCESS:" -ForegroundColor Green
-Write-Host "SilentTrack AI is ready!" -ForegroundColor White
+Write-Host "VideoMusicRemover AI is ready!" -ForegroundColor White
 Write-Host ""
 Write-Host "Open:"
 Write-Host "  http://localhost:${FrontendPort}" -ForegroundColor Cyan
@@ -194,7 +194,7 @@ if ($Detach.IsPresent) {
     exit 0
 }
 
-Write-Host "Press Ctrl+C to stop SilentTrack AI (or run .\stop.ps1 in another PowerShell window)." -ForegroundColor Yellow
+Write-Host "Press Ctrl+C to stop VideoMusicRemover AI (or run .\stop.ps1 in another PowerShell window)." -ForegroundColor Yellow
 
 try {
     while (-not $BackendProc.HasExited -and -not $FrontendProc.HasExited) {

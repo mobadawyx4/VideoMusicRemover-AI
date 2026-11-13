@@ -1,4 +1,4 @@
-"""Automated backend test suite for SilentTrack AI."""
+"""Automated backend test suite for VideoMusicRemover AI."""
 
 from __future__ import annotations
 
@@ -104,7 +104,7 @@ def test_cross_platform_scripts_and_model_cache() -> None:
             "[3/5] Installing backend dependencies...",
             "[4/5] Installing frontend dependencies...",
             "[5/5] Validating installation...",
-            "SilentTrack AI is ready!",
+            "VideoMusicRemover AI is ready!",
             "http://localhost:5173",
         ):
             assert step in content, f"Missing '{step}' in {installer}"

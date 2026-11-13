@@ -1,4 +1,4 @@
-"""Pydantic data models for SilentTrack AI API."""
+"""Pydantic data models for VideoMusicRemover AI API."""
 
 from __future__ import annotations
 

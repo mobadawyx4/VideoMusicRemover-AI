@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# SilentTrack AI — Cross-Distro Linux Installer
+# VideoMusicRemover AI — Cross-Distro Linux Installer
 # Supports Ubuntu, Debian, Linux Mint, Pop!_OS, Fedora, Arch, and compatible distros
 # ============================================================================
 set -euo pipefail
@@ -47,7 +47,7 @@ warn()  { echo -e "${YELLOW}[WARN]${RESET} $*"; }
 fail()  { echo -e "\n${RED}[ERROR]${RESET} $*\n" >&2; exit 1; }
 
 echo -e "${BOLD}============================================================${RESET}"
-echo -e "${BOLD}  SilentTrack AI — Automated Linux Installation${RESET}"
+echo -e "${BOLD}  VideoMusicRemover AI — Automated Linux Installation${RESET}"
 echo -e "${BOLD}============================================================${RESET}"
 echo ""
 
@@ -188,6 +188,31 @@ if [ -f "$REQ_STAMP" ]; then
   INSTALLED_REQ_HASH="$(cat "$REQ_STAMP" 2>/dev/null || true)"
 fi
 
+# Install PyTorch separately so the generic requirements cannot replace its build.
+if command -v nvidia-smi >/dev/null 2>&1; then
+  TORCH_OK=false
+  if "$VENV_DIR/bin/python" -c "import torch; assert torch.__version__ == '2.5.1+cu121'; assert torch.cuda.is_available()" >/dev/null 2>&1; then
+    TORCH_OK=true
+  fi
+  if [ "$TORCH_OK" = false ]; then
+    info "Installing PyTorch 2.5.1 with CUDA 12.1 support..."
+    "$VENV_DIR/bin/python" -m pip install "torch==2.5.1" --index-url https://download.pytorch.org/whl/cu121
+  else
+    ok "Compatible PyTorch CUDA installation already present"
+  fi
+else
+  TORCH_OK=false
+  if "$VENV_DIR/bin/python" -c "import torch; assert torch.__version__ == '2.5.1'; assert torch.version.cuda is None" >/dev/null 2>&1; then
+    TORCH_OK=true
+  fi
+  if [ "$TORCH_OK" = false ]; then
+    info "Installing PyTorch 2.5.1 CPU build..."
+    "$VENV_DIR/bin/python" -m pip install "torch==2.5.1" --index-url https://download.pytorch.org/whl/cpu
+  else
+    ok "Compatible PyTorch CPU installation already present"
+  fi
+fi
+
 BACKEND_IMPORTS_OK=false
 if "$VENV_DIR/bin/python" -c "import fastapi, uvicorn, torch, soundfile, huggingface_hub, safetensors, aiofiles" >/dev/null 2>&1; then
   BACKEND_IMPORTS_OK=true
@@ -199,12 +224,11 @@ elif [ "$BACKEND_IMPORTS_OK" = true ] && [ -z "$INSTALLED_REQ_HASH" ]; then
   echo "$CURRENT_REQ_HASH" > "$REQ_STAMP"
   ok "Verified existing backend Python packages in .venv"
 else
-  info "Installing Python packages from backend/requirements.txt..."
+  info "Installing remaining Python packages from backend/requirements.txt..."
   if command -v uv >/dev/null 2>&1; then
     uv pip install --python "$VENV_DIR/bin/python" -r "$REQ_FILE"
   else
-    "$VENV_DIR/bin/pip" install --upgrade pip >/dev/null 2>&1 || true
-    "$VENV_DIR/bin/pip" install -r "$REQ_FILE"
+    "$VENV_DIR/bin/python" -m pip install -r "$REQ_FILE"
   fi
   echo "$CURRENT_REQ_HASH" > "$REQ_STAMP"
   ok "Installed backend Python dependencies"
@@ -270,7 +294,7 @@ test -x "$FRONTEND_DIR/node_modules/.bin/vite" && ok "React + Vite frontend veri
 echo ""
 echo -e "${GREEN}${BOLD}SUCCESS:${RESET}"
 echo -e "${BOLD}VideoMusicRemover AI installation completed!${RESET}"
-echo -e "${GREEN}SilentTrack AI is ready!${RESET}"
+echo -e "${GREEN}VideoMusicRemover AI is ready!${RESET}"
 echo ""
 
 if [ "$AUTO_LAUNCH" = true ]; then

@@ -18,7 +18,7 @@ export default function Navbar({ health }) {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-lg font-extrabold tracking-tight text-white">
-                SilentTrack{" "}
+                VideoMusicRemover{" "}
                 <span className="bg-gradient-to-r from-purple-400 via-violet-400 to-cyan-400 bg-clip-text text-transparent">
                   AI
                 </span>

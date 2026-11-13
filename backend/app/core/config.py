@@ -1,4 +1,4 @@
-"""Application configuration for SilentTrack AI backend."""
+"""Application configuration for VideoMusicRemover AI backend."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    APP_NAME: str = "SilentTrack AI"
+    APP_NAME: str = "VideoMusicRemover AI"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
 

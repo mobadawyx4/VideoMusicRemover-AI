@@ -1,8 +1,8 @@
 ﻿<#
 .SYNOPSIS
-    SilentTrack AI — Safe Windows PowerShell Update Script
+    VideoMusicRemover AI — Safe Windows PowerShell Update Script
 .DESCRIPTION
-    Safely stops running SilentTrack AI processes, preserves user .env configuration
+    Safely stops running VideoMusicRemover AI processes, preserves user .env configuration
     and cached data/models, pulls Git updates if a remote is configured, and updates dependencies.
 #>
 [CmdletBinding()]
@@ -13,10 +13,10 @@ $RootDir = Split-Path -Parent $MyInvocation.MyCommand.FullName
 Set-Location $RootDir
 
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  SilentTrack AI — Safe Local Update" -ForegroundColor White
+Write-Host "  VideoMusicRemover AI — Safe Local Update" -ForegroundColor White
 Write-Host "============================================================" -ForegroundColor Cyan
 
-# 1. Stop running SilentTrack AI processes safely
+# 1. Stop running VideoMusicRemover AI processes safely
 $StopScript = Join-Path $RootDir "stop.ps1"
 if (Test-Path $StopScript) {
     & $StopScript

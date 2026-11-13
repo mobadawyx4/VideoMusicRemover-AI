@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# SilentTrack AI — One-Command Linux Startup Script
+# VideoMusicRemover AI — One-Command Linux Startup Script
 # Usage: ./start.sh [--lan] [--no-browser] [--daemon]
 # ============================================================================
 set -euo pipefail
@@ -79,13 +79,13 @@ fi
 
 mkdir -p "$ROOT_DIR/.runtime" "$ROOT_DIR/data/jobs" "$ROOT_DIR/data/models"
 
-# Stop any previous stale SilentTrack AI instance before starting
+# Stop any previous stale VideoMusicRemover AI instance before starting
 if [ -f "$ROOT_DIR/.runtime/backend.pid" ] || [ -f "$ROOT_DIR/.runtime/frontend.pid" ]; then
   "$ROOT_DIR/stop.sh" >/dev/null 2>&1 || true
 fi
 
 echo -e "${BOLD}============================================================${RESET}"
-echo -e "${BOLD}  Starting SilentTrack AI${RESET}"
+echo -e "${BOLD}  Starting VideoMusicRemover AI${RESET}"
 echo -e "${BOLD}============================================================${RESET}"
 
 # 2. Start FastAPI Backend
@@ -160,7 +160,7 @@ echo -e "${GREEN}  ✓${RESET} Frontend server is online"
 
 echo ""
 echo -e "${GREEN}${BOLD}SUCCESS:${RESET}"
-echo -e "${BOLD}SilentTrack AI is ready!${RESET}"
+echo -e "${BOLD}VideoMusicRemover AI is ready!${RESET}"
 echo ""
 echo -e "Open:"
 echo -e "  ${CYAN}http://localhost:${FRONTEND_PORT}${RESET}"
@@ -188,7 +188,7 @@ if [ "$DAEMON_MODE" = true ]; then
   exit 0
 fi
 
-echo -e "Press ${BOLD}Ctrl+C${RESET} to stop SilentTrack AI (or run ${CYAN}./stop.sh${RESET} from another terminal)."
+echo -e "Press ${BOLD}Ctrl+C${RESET} to stop VideoMusicRemover AI (or run ${CYAN}./stop.sh${RESET} from another terminal)."
 
 cleanup_on_exit() {
   echo ""

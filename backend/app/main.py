@@ -1,4 +1,4 @@
-"""Main FastAPI application entry point for SilentTrack AI."""
+"""Main FastAPI application entry point for VideoMusicRemover AI."""
 
 from __future__ import annotations
 

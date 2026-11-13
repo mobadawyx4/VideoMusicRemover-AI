@@ -1,4 +1,4 @@
-# SilentTrack AI - Backend Runtime & Test Dependencies
+# VideoMusicRemover AI - Backend Runtime & Test Dependencies
 # Python 3.10 - 3.12
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
@@ -10,6 +10,5 @@ numpy==1.26.4
 soundfile==0.12.1
 huggingface_hub==0.27.1
 safetensors==0.4.5
-torch>=2.5.0
 yt-dlp>=2024.12.23
 requests>=2.31.0

@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    SilentTrack AI — Automated Windows PowerShell Installer
+    VideoMusicRemover AI — Automated Windows PowerShell Installer
 .DESCRIPTION
     Detects Windows version, verifies Python 3.10–3.12, Node.js, npm, and FFmpeg/FFprobe,
     offers Winget installation if FFmpeg is missing, creates .venv, installs backend and
@@ -45,7 +45,7 @@ function Exit-WithError($Text) {
 }
 
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  SilentTrack AI — Automated Windows Installation" -ForegroundColor White
+Write-Host "  VideoMusicRemover AI — Automated Windows Installation" -ForegroundColor White
 Write-Host "============================================================" -ForegroundColor Cyan
 
 # ----------------------------------------------------------------------------
@@ -217,6 +217,38 @@ $ReqStamp = Join-Path $VenvDir ".requirements.sha256"
 $CurrentReqHash = (Get-FileHash -Path $ReqFile -Algorithm SHA256).Hash
 $InstalledReqHash = if (Test-Path $ReqStamp) { (Get-Content $ReqStamp -Raw).Trim() } else { "" }
 
+# Install PyTorch separately to preserve the correct CUDA/CPU build.
+$HasNvidia = $false
+try {
+    & nvidia-smi *> $null
+    if ($LASTEXITCODE -eq 0) { $HasNvidia = $true }
+} catch {}
+
+$TorchOk = $false
+if ($HasNvidia) {
+    & $VenvPython -c "import torch; assert torch.__version__ == '2.5.1+cu121'; assert torch.cuda.is_available()" 2>$null
+    if ($LASTEXITCODE -eq 0) { $TorchOk = $true }
+
+    if (-not $TorchOk) {
+        Write-Info "Installing PyTorch 2.5.1 with CUDA 12.1 support..."
+        & $VenvPython -m pip install "torch==2.5.1" --index-url https://download.pytorch.org/whl/cu121
+        if ($LASTEXITCODE -ne 0) { Exit-WithError "PyTorch CUDA installation failed." }
+    } else {
+        Write-Ok "Compatible PyTorch CUDA installation already present"
+    }
+} else {
+    & $VenvPython -c "import torch; assert torch.__version__.split('+')[0] == '2.5.1'; assert torch.version.cuda is None" 2>$null
+    if ($LASTEXITCODE -eq 0) { $TorchOk = $true }
+
+    if (-not $TorchOk) {
+        Write-Info "Installing PyTorch 2.5.1 CPU build..."
+        & $VenvPython -m pip install "torch==2.5.1" --index-url https://download.pytorch.org/whl/cpu
+        if ($LASTEXITCODE -ne 0) { Exit-WithError "PyTorch CPU installation failed." }
+    } else {
+        Write-Ok "Compatible PyTorch CPU installation already present"
+    }
+}
+
 $ImportsOk = $false
 try {
     & $VenvPython -c "import fastapi, uvicorn, torch, soundfile, huggingface_hub, safetensors, aiofiles" 2>$null
@@ -229,8 +261,7 @@ if ($ImportsOk -and ($CurrentReqHash -eq $InstalledReqHash)) {
     Set-Content -Path $ReqStamp -Value $CurrentReqHash -NoNewline
     Write-Ok "Verified existing backend Python packages in .venv"
 } else {
-    Write-Info "Installing Python packages from backend\requirements.txt..."
-    & $VenvPython -m pip install --upgrade pip | Out-Null
+    Write-Info "Installing remaining Python packages from backend\requirements.txt..."
     & $VenvPython -m pip install -r $ReqFile
     if ($LASTEXITCODE -ne 0) {
         Exit-WithError "Failed to install backend Python dependencies."
@@ -310,7 +341,7 @@ Write-Ok "React + Vite frontend verified"
 Write-Host ""
 Write-Host "SUCCESS:" -ForegroundColor Green
 Write-Host "VideoMusicRemover AI installation completed!" -ForegroundColor White
-Write-Host "SilentTrack AI is ready!" -ForegroundColor Green
+Write-Host "VideoMusicRemover AI is ready!" -ForegroundColor Green
 Write-Host ""
 
 if (-not $NoLaunch.IsPresent) {

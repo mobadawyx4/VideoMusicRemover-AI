@@ -1,4 +1,4 @@
-"""FFmpeg and FFprobe video/audio processing utilities for SilentTrack AI."""
+"""FFmpeg and FFprobe video/audio processing utilities for VideoMusicRemover AI."""
 
 from __future__ import annotations
 
