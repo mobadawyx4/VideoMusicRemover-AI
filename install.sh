@@ -234,11 +234,13 @@ else
   ok "Installed backend Python dependencies"
 fi
 
-info "Verifying TIGER-DnR AI audio separation model cache..."
+info "Checking TIGER-DnR AI audio separation model cache..."
 PYTHONPATH="$ROOT_DIR/backend" "$VENV_DIR/bin/python" -c "
 from app.services.separation import separator_service
-snap = separator_service.ensure_model_cached()
-print(f'  ✓ AI model ready in local cache: {snap}')
+if separator_service.is_model_available():
+    print('  ✓ AI model weights already cached locally')
+else:
+    print('  i AI model weights will download automatically on the first video-processing run')
 "
 echo ""
 
@@ -284,10 +286,12 @@ from app.services.separation import separator_service
 
 ff_ok, fp_ok = check_ffmpeg_installed()
 assert ff_ok and fp_ok, 'FFmpeg or FFprobe validation failed'
-assert separator_service.is_model_available(), 'TIGER-DnR model cache validation failed'
 print('  ✓ FastAPI application & routes verified')
 print('  ✓ FFmpeg & FFprobe integration verified')
-print(f'  ✓ TIGER-DnR AI model verified (device: {separator_service.device})')
+if separator_service.is_model_available():
+    print(f'  ✓ TIGER-DnR AI model verified in local cache (device: {separator_service.device})')
+else:
+    print(f'  i TIGER-DnR AI model will download on first use (device: {separator_service.device})')
 "
 test -x "$FRONTEND_DIR/node_modules/.bin/vite" && ok "React + Vite frontend verified"
 
@@ -295,6 +299,7 @@ echo ""
 echo -e "${GREEN}${BOLD}SUCCESS:${RESET}"
 echo -e "${BOLD}VideoMusicRemover AI installation completed!${RESET}"
 echo -e "${GREEN}VideoMusicRemover AI is ready!${RESET}"
+echo "The AI model downloads automatically on your first video-processing run."
 echo ""
 
 if [ "$AUTO_LAUNCH" = true ]; then

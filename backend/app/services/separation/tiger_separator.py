@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import threading
 import time
 from pathlib import Path
 from typing import Callable, Optional
@@ -33,6 +34,8 @@ class TigerSeparatorService:
         self._model: Optional[TIGERDNR] = None
         self._device: str = "cuda" if torch.cuda.is_available() else "cpu"
         self._model_path: Optional[Path] = None
+        # Serialize first-use download/load so concurrent jobs cannot duplicate work.
+        self._model_lock = threading.RLock()
         torch.set_num_threads(settings.TORCH_NUM_THREADS)
 
     @classmethod
@@ -78,82 +81,87 @@ class TigerSeparatorService:
 
     def ensure_model_cached(self) -> Path:
         """Ensure TIGER-DnR model weights are cached locally; download once if missing."""
-        existing = self.find_local_snapshot()
-        if existing is not None:
-            return existing
+        with self._model_lock:
+            existing = self.find_local_snapshot()
+            if existing is not None:
+                return existing
 
-        free_mb = self.check_available_disk_space_mb(settings.MODELS_DIR)
-        if free_mb < settings.MIN_DISK_SPACE_MB:
-            raise SeparationError(
-                f"Insufficient disk space to download AI model weights. "
-                f"Available: {free_mb:.0f} MB, Required: at least {settings.MIN_DISK_SPACE_MB} MB."
-            )
-
-        logger.info(
-            "Downloading AI model '%s' into local cache (%s)...",
-            settings.MODEL_REPO_ID,
-            settings.MODELS_DIR,
-        )
-        try:
-            downloaded_path = snapshot_download(
-                repo_id=settings.MODEL_REPO_ID,
-                cache_dir=str(settings.MODELS_DIR),
-                resume_download=True,
-            )
-            snap = Path(downloaded_path)
-            if not (snap / "config.json").is_file():
-                found = self.find_local_snapshot()
-                if found is not None:
-                    return found
+            free_mb = self.check_available_disk_space_mb(settings.MODELS_DIR)
+            if free_mb < settings.MIN_DISK_SPACE_MB:
                 raise SeparationError(
-                    "Downloaded model snapshot is incomplete (missing config.json)."
+                    f"Insufficient disk space to download AI model weights. "
+                    f"Available: {free_mb:.0f} MB, Required: at least {settings.MIN_DISK_SPACE_MB} MB."
                 )
-            return snap
-        except SeparationError:
-            raise
-        except Exception as exc:
-            raise SeparationError(
-                f"Could not download AI model '{settings.MODEL_REPO_ID}'. "
-                f"Please verify your internet connection for the initial download, "
-                f"or place cached weights in '{settings.MODELS_DIR}'. Details: {exc}"
-            ) from exc
+
+            logger.info(
+                "Downloading AI model '%s' into local cache (%s)...",
+                settings.MODEL_REPO_ID,
+                settings.MODELS_DIR,
+            )
+            try:
+                downloaded_path = snapshot_download(
+                    repo_id=settings.MODEL_REPO_ID,
+                    cache_dir=str(settings.MODELS_DIR),
+                    resume_download=True,
+                )
+                snap = Path(downloaded_path)
+                if not (snap / "config.json").is_file():
+                    found = self.find_local_snapshot()
+                    if found is not None:
+                        return found
+                    raise SeparationError(
+                        "Downloaded model snapshot is incomplete (missing config.json)."
+                    )
+                return snap
+            except SeparationError:
+                raise
+            except Exception as exc:
+                raise SeparationError(
+                    f"Could not download AI model '{settings.MODEL_REPO_ID}'. "
+                    f"Please verify your internet connection for the initial download, "
+                    f"or place cached weights in '{settings.MODELS_DIR}'. Details: {exc}"
+                ) from exc
 
     def load_model(self) -> TIGERDNR:
         """Lazy-load TIGER-DnR model weights onto target device (offline-capable once cached)."""
         if self._model is not None:
             return self._model
 
-        snap = self.ensure_model_cached()
-        try:
-            t0 = time.time()
-            logger.info("Loading TIGER-DnR weights from local cache: %s", snap)
-            model = TIGERDNR.from_pretrained(str(snap), local_files_only=True)
-            self._model_path = snap
+        with self._model_lock:
+            if self._model is not None:
+                return self._model
 
-            # Attempt to move to device; fallback to CPU if GPU lacks memory or CUDA arch support
-            if self._device == "cuda":
-                try:
-                    model = model.to("cuda")
-                    test_x = torch.zeros(1, 1, 4096, device="cuda")
-                    with torch.no_grad():
-                        _ = model.dialog(test_x)
-                except Exception as gpu_exc:
-                    logger.warning(
-                        "CUDA execution failed (%s); falling back to CPU.", gpu_exc
-                    )
-                    self._device = "cpu"
-                    model = model.to("cpu")
+            snap = self.ensure_model_cached()
+            try:
+                t0 = time.time()
+                logger.info("Loading TIGER-DnR weights from local cache: %s", snap)
+                model = TIGERDNR.from_pretrained(str(snap), local_files_only=True)
+                self._model_path = snap
 
-            model.eval()
-            self._model = model
-            logger.info(
-                "TIGER-DnR loaded on %s in %.2fs", self._device, time.time() - t0
-            )
-            return self._model
-        except Exception as exc:
-            raise SeparationError(
-                f"Failed to load AI separation model '{settings.MODEL_REPO_ID}': {exc}"
-            ) from exc
+                # Attempt to move to device; fallback to CPU if GPU lacks memory or CUDA arch support
+                if self._device == "cuda":
+                    try:
+                        model = model.to("cuda")
+                        test_x = torch.zeros(1, 1, 4096, device="cuda")
+                        with torch.no_grad():
+                            _ = model.dialog(test_x)
+                    except Exception as gpu_exc:
+                        logger.warning(
+                            "CUDA execution failed (%s); falling back to CPU.", gpu_exc
+                        )
+                        self._device = "cpu"
+                        model = model.to("cpu")
+
+                model.eval()
+                self._model = model
+                logger.info(
+                    "TIGER-DnR loaded on %s in %.2fs", self._device, time.time() - t0
+                )
+                return self._model
+            except Exception as exc:
+                raise SeparationError(
+                    f"Failed to load AI separation model '{settings.MODEL_REPO_ID}': {exc}"
+                ) from exc
 
     def _infer_mono_chunked(
         self,

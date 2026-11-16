@@ -4,8 +4,8 @@
 .DESCRIPTION
     Detects Windows version, verifies Python 3.10–3.12, Node.js, npm, and FFmpeg/FFprobe,
     offers Winget installation if FFmpeg is missing, creates .venv, installs backend and
-    frontend dependencies without unnecessary reinstalls, caches the TIGER-DnR AI model,
-    and validates the complete installation.
+    frontend dependencies without unnecessary reinstalls, verifies the lazy TIGER-DnR
+    AI model cache, and validates the complete installation.
 #>
 [CmdletBinding()]
 param(
@@ -270,11 +270,11 @@ if ($ImportsOk -and ($CurrentReqHash -eq $InstalledReqHash)) {
     Write-Ok "Installed backend Python dependencies"
 }
 
-Write-Info "Verifying TIGER-DnR AI audio separation model cache..."
+Write-Info "Checking TIGER-DnR AI audio separation model cache..."
 $env:PYTHONPATH = Join-Path $RootDir "backend"
-& $VenvPython -c "from app.services.separation import separator_service; snap = separator_service.ensure_model_cached(); print(f'  [OK] AI model ready in local cache: {snap}')"
+& $VenvPython -c "from app.services.separation import separator_service; print('  [OK] AI model weights already cached locally' if separator_service.is_model_available() else '  [INFO] AI model weights will download automatically on the first video-processing run')"
 if ($LASTEXITCODE -ne 0) {
-    Exit-WithError "AI model verification/download failed. Check your internet connection or disk space."
+    Exit-WithError "AI model status check failed. Verify the backend Python dependencies are installed correctly."
 }
 
 # ----------------------------------------------------------------------------
@@ -324,10 +324,12 @@ from app.services.media_service import check_ffmpeg_installed
 from app.services.separation import separator_service
 ff_ok, fp_ok = check_ffmpeg_installed()
 assert ff_ok and fp_ok, 'FFmpeg or FFprobe validation failed'
-assert separator_service.is_model_available(), 'TIGER-DnR model cache validation failed'
 print('  [OK] FastAPI application & routes verified')
 print('  [OK] FFmpeg & FFprobe integration verified')
-print(f'  [OK] TIGER-DnR AI model verified (device: {separator_service.device})')
+if separator_service.is_model_available():
+    print(f'  [OK] TIGER-DnR AI model verified in local cache (device: {separator_service.device})')
+else:
+    print(f'  [INFO] TIGER-DnR AI model will download on first use (device: {separator_service.device})')
 "
 if ($LASTEXITCODE -ne 0) {
     Exit-WithError "Backend validation check failed."
@@ -342,6 +344,7 @@ Write-Host ""
 Write-Host "SUCCESS:" -ForegroundColor Green
 Write-Host "VideoMusicRemover AI installation completed!" -ForegroundColor White
 Write-Host "VideoMusicRemover AI is ready!" -ForegroundColor Green
+Write-Host "The AI model downloads automatically on your first video-processing run." -ForegroundColor Cyan
 Write-Host ""
 
 if (-not $NoLaunch.IsPresent) {

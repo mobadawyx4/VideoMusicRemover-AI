@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.config import PROJECT_ROOT
+from app.core.config import PROJECT_ROOT, settings
 from app.core.schemas import ProcessOptions, SeparationMode
 from app.core.security import sanitize_filename, validate_job_id
 from app.main import app
@@ -38,7 +38,10 @@ def test_health_endpoint(client: TestClient) -> None:
     assert data["status"] == "ok"
     assert data["ffmpeg_available"] is True
     assert data["ffprobe_available"] is True
-    assert data["ai_model_ready"] is True
+    # Model weights are downloaded lazily on first processing, so installation
+    # and health checks must not require them to be present yet.
+    assert isinstance(data["ai_model_ready"], bool)
+    assert data["ai_model_ready"] == separator_service.is_model_available()
     assert ".mp4" in data["allowed_extensions"]
 
 
@@ -108,6 +111,79 @@ def test_cross_platform_scripts_and_model_cache() -> None:
             "http://localhost:5173",
         ):
             assert step in content, f"Missing '{step}' in {installer}"
+
+
+def test_installers_defer_model_download_until_first_use() -> None:
+    for installer in ("install.sh", "install.ps1"):
+        content = (PROJECT_ROOT / installer).read_text(encoding="utf-8")
+        assert "ensure_model_cached" not in content, (
+            f"{installer} must not download the AI model during installation"
+        )
+        assert "first video-processing run" in content, (
+            f"{installer} must tell users the AI model downloads on first use"
+        )
+        assert "assert separator_service.is_model_available()" not in content, (
+            f"{installer} must not fail validation when model weights are not cached yet"
+        )
+
+
+def test_model_download_is_lazy_and_cached_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import app.services.separation.tiger_separator as tiger_module
+
+    models_dir = tmp_path / "models"
+    fake_snapshot = (
+        models_dir
+        / f"models--{settings.MODEL_REPO_ID.replace('/', '--')}"
+        / "snapshots"
+        / "test-revision"
+    )
+    monkeypatch.setattr(settings, "MODELS_DIR", models_dir)
+
+    download_calls = []
+
+    def fake_snapshot_download(**kwargs):
+        download_calls.append(kwargs)
+        fake_snapshot.mkdir(parents=True)
+        (fake_snapshot / "config.json").write_text("{}", encoding="utf-8")
+        (fake_snapshot / "model.safetensors").write_bytes(b"fake-weights")
+        return str(fake_snapshot)
+
+    monkeypatch.setattr(tiger_module, "snapshot_download", fake_snapshot_download)
+
+    service = tiger_module.TigerSeparatorService()
+    service._device = "cpu"
+
+    # Merely constructing the service must not download model weights.
+    assert download_calls == []
+    assert service.is_model_available() is False
+
+    class FakeModel:
+        def to(self, device):
+            return self
+
+        def eval(self):
+            return self
+
+    load_calls = []
+
+    def fake_from_pretrained(path, **kwargs):
+        load_calls.append((path, kwargs))
+        return FakeModel()
+
+    monkeypatch.setattr(
+        tiger_module.TIGERDNR, "from_pretrained", fake_from_pretrained
+    )
+
+    # First actual use downloads and loads exactly once; later calls reuse memory/cache.
+    first = service.load_model()
+    second = service.load_model()
+    assert first is second
+    assert service.is_model_available() is True
+    assert len(download_calls) == 1
+    assert len(load_calls) == 1
+    assert load_calls[0] == (str(fake_snapshot), {"local_files_only": True})
 
 
 def test_upload_validation_errors(client: TestClient) -> None:
