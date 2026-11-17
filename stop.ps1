@@ -1,8 +1,8 @@
 ﻿<#
 .SYNOPSIS
-    SilentTrack AI — Safe Windows PowerShell Shutdown Script
+    VideoMusicRemover AI — Safe Windows PowerShell Shutdown Script
 .DESCRIPTION
-    Stops ONLY the backend and frontend processes started by SilentTrack AI
+    Stops ONLY the backend and frontend processes started by VideoMusicRemover AI
     using recorded PID files in .runtime\, without killing unrelated Python or Node processes.
 #>
 [CmdletBinding()]
@@ -46,12 +46,12 @@ function Stop-SilentTrackProcess {
     $CmdLine = if ($CimProc) { $CimProc.CommandLine } else { "" }
 
     if ($CmdLine -and ($CmdLine -notlike "*$RootDir*") -and ($CmdLine -notlike "*$ExpectedKeyword*")) {
-        Write-Host "[WARN] Skipping PID $TargetPid ($Label): does not belong to SilentTrack AI." -ForegroundColor Yellow
+        Write-Host "[WARN] Skipping PID $TargetPid ($Label): does not belong to VideoMusicRemover AI." -ForegroundColor Yellow
         Remove-Item $PidFile -Force
         return $false
     }
 
-    Write-Host "[INFO] Stopping SilentTrack AI $Label (PID $TargetPid)..." -ForegroundColor Cyan
+    Write-Host "[INFO] Stopping VideoMusicRemover AI $Label (PID $TargetPid)..." -ForegroundColor Cyan
 
     # Stop any child processes spawned by this PID (e.g., node.exe/esbuild.exe under cmd/vite)
     $Children = Get-CimInstance Win32_Process -Filter "ParentProcessId = $TargetPid" -ErrorAction SilentlyContinue
@@ -73,7 +73,7 @@ $StoppedFrontend = Stop-SilentTrackProcess -Label "Frontend (Vite)" -PidFile (Jo
 $StoppedBackend  = Stop-SilentTrackProcess -Label "Backend (FastAPI)" -PidFile (Join-Path $RuntimeDir "backend.pid") -ExpectedKeyword "app.main:app"
 
 if (-not $StoppedFrontend -and -not $StoppedBackend) {
-    Write-Host "[INFO] No running SilentTrack AI instances found." -ForegroundColor Cyan
+    Write-Host "[INFO] No running VideoMusicRemover AI instances found." -ForegroundColor Cyan
 } else {
-    Write-Host "SilentTrack AI has been stopped safely." -ForegroundColor Green
+    Write-Host "VideoMusicRemover AI has been stopped safely." -ForegroundColor Green
 }

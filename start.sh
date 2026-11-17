@@ -74,7 +74,13 @@ fi
 # 1. Verify installation
 if [ ! -x "$ROOT_DIR/.venv/bin/python" ] || [ ! -x "$ROOT_DIR/frontend/node_modules/.bin/vite" ]; then
   echo -e "${YELLOW}[INFO]${RESET} First-time setup required. Running ./install.sh..."
-  "$ROOT_DIR/install.sh"
+  # --no-launch prevents install.sh from starting start.sh recursively.
+  "$ROOT_DIR/install.sh" --no-launch
+  if [ ! -x "$ROOT_DIR/.venv/bin/python" ] || [ ! -x "$ROOT_DIR/frontend/node_modules/.bin/vite" ]; then
+    echo -e "${RED}[ERROR]${RESET} Installation did not complete successfully."
+    echo "Run ./install.sh directly to review the error, then try ./start.sh again."
+    exit 1
+  fi
 fi
 
 mkdir -p "$ROOT_DIR/.runtime" "$ROOT_DIR/data/jobs" "$ROOT_DIR/data/models"

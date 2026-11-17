@@ -20,8 +20,16 @@ def _resolve_binary(name: str, env_var: str) -> str:
     if explicit and Path(explicit).is_file():
         return str(Path(explicit).resolve())
 
-    # Check Windows .exe as well as POSIX binary name inside tools/ffmpeg
+    # Check Windows .exe as well as POSIX binary name inside tools/ffmpeg.
+    # Only accept the binary form that matches the current platform so a
+    # Linux ELF or a Windows .exe copied into tools/ffmpeg is never executed
+    # on the wrong operating system.
     for candidate_name in (name, f"{name}.exe"):
+        is_windows_binary = candidate_name.lower().endswith(".exe")
+        if os.name == "nt" and not is_windows_binary:
+            continue
+        if os.name != "nt" and is_windows_binary:
+            continue
         bundled = PROJECT_ROOT / "tools" / "ffmpeg" / candidate_name
         if bundled.is_file():
             return str(bundled.resolve())

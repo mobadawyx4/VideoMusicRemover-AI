@@ -29,7 +29,13 @@ $RuntimeDir = Join-Path $RootDir ".runtime"
 # 1. Verify installation
 if (-not (Test-Path $VenvPython) -or -not (Test-Path $ViteCmd)) {
     Write-Host "[INFO] First-time setup required. Running .\install.ps1..." -ForegroundColor Yellow
-    & (Join-Path $RootDir "install.ps1")
+    # -NoLaunch prevents install.ps1 from starting start.ps1 recursively.
+    & (Join-Path $RootDir "install.ps1") -NoLaunch
+    if (-not (Test-Path $VenvPython) -or -not (Test-Path $ViteCmd)) {
+        Write-Host "[ERROR] Installation did not complete successfully." -ForegroundColor Red
+        Write-Host "Run .\install.ps1 directly to review the error, then try .\start.ps1 again." -ForegroundColor Yellow
+        exit 1
+    }
 }
 
 New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null

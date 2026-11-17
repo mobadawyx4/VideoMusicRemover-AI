@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -125,6 +127,124 @@ def test_installers_defer_model_download_until_first_use() -> None:
         assert "assert separator_service.is_model_available()" not in content, (
             f"{installer} must not fail validation when model weights are not cached yet"
         )
+
+
+def test_windows_installer_supports_robust_prerequisites() -> None:
+    content = (PROJECT_ROOT / "install.ps1").read_text(encoding="utf-8")
+
+    expected_fragments = (
+        "Is64BitOperatingSystem",
+        "PROCESSOR_ARCHITECTURE",
+        "Python.Python.3.12",
+        "OpenJS.NodeJS.LTS",
+        "Gyan.FFmpeg",
+        "nvidia-smi",
+        "torch.cuda.is_available()",
+        "https://download.pytorch.org/whl/cu121",
+        "https://download.pytorch.org/whl/cpu",
+        "-TorchMode",
+        "check_requirements.py",
+        "first video-processing run",
+    )
+    for fragment in expected_fragments:
+        assert fragment in content, f"install.ps1 is missing: {fragment}"
+
+    assert "Set-ExecutionPolicy" not in content
+    assert "Windows on ARM" in content
+    assert "CUDA is not usable at runtime" in content
+    assert "CPU fallback" in content
+
+
+def test_windows_start_and_update_are_safe() -> None:
+    start = (PROJECT_ROOT / "start.ps1").read_text(encoding="utf-8")
+    update = (PROJECT_ROOT / "update.ps1").read_text(encoding="utf-8")
+
+    # First-run install must not recursively launch start.ps1 again.
+    assert '"install.ps1") -NoLaunch' in start
+    assert "Installation did not complete successfully" in start
+
+    # Updates must guard local changes and preserve user/model data.
+    assert "git status --porcelain" in update
+    assert "data\\models" in update
+    assert "preserved" in update
+    assert "-NoPull" in update
+    for script in (start, update):
+        assert "Set-ExecutionPolicy" not in script
+
+
+def test_linux_start_avoids_installer_recursion() -> None:
+    start = (PROJECT_ROOT / "start.sh").read_text(encoding="utf-8")
+    assert 'install.sh" --no-launch' in start
+    assert "Installation did not complete successfully" in start
+
+
+def test_bundled_binary_resolution_respects_platform(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.core import config
+
+    bundled_dir = tmp_path / "tools" / "ffmpeg"
+    bundled_dir.mkdir(parents=True)
+    posix_binary = bundled_dir / "ffmpeg"
+    windows_binary = bundled_dir / "ffmpeg.exe"
+    posix_binary.write_text("posix", encoding="utf-8")
+    windows_binary.write_text("windows", encoding="utf-8")
+
+    monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
+    monkeypatch.delenv("FFMPEG_PATH", raising=False)
+
+    resolved = Path(config._resolve_binary("ffmpeg", "FFMPEG_PATH"))
+    if os.name == "nt":
+        assert resolved == windows_binary.resolve()
+    else:
+        assert resolved == posix_binary.resolve()
+
+
+def test_requirement_checker_verifies_installed_versions(tmp_path: Path) -> None:
+    checker = PROJECT_ROOT / "scripts" / "check_requirements.py"
+    req_file = tmp_path / "requirements.txt"
+
+    req_file.write_text("pytest>=8.0.0\n", encoding="utf-8")
+    satisfied = subprocess.run(
+        [sys.executable, str(checker), str(req_file)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert satisfied.returncode == 0, satisfied.stderr
+
+    req_file.write_text(
+        "definitely-not-installed-package==1.0.0\n", encoding="utf-8"
+    )
+    missing = subprocess.run(
+        [sys.executable, str(checker), str(req_file)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert missing.returncode == 1
+    assert "MISSING" in missing.stderr
+
+
+def test_requirement_checker_version_semantics() -> None:
+    import importlib.util
+
+    checker = PROJECT_ROOT / "scripts" / "check_requirements.py"
+    spec = importlib.util.spec_from_file_location("check_requirements", checker)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    # Local build labels satisfy a plain == pin (PyTorch 2.5.1+cu121).
+    assert module.satisfies("2.5.1+cu121", "==", "2.5.1")
+    # PEP 440 trailing zeros are equivalent.
+    assert module.satisfies("2.0", "==", "2.0.0")
+    assert not module.satisfies("2.0", "!=", "2.0.0")
+    assert module.satisfies("1.4.2", ">=", "1.4")
+    assert module.satisfies("2.10.4", "~=", "2.10")
+    assert not module.satisfies("3.0.0", "~=", "2.10")
+    assert module.satisfies("1.2.9", "~=", "1.2.3")
+    assert not module.satisfies("1.3.0", "~=", "1.2.3")
 
 
 def test_model_download_is_lazy_and_cached_once(

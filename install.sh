@@ -191,38 +191,39 @@ fi
 # Install PyTorch separately so the generic requirements cannot replace its build.
 if command -v nvidia-smi >/dev/null 2>&1; then
   TORCH_OK=false
-  if "$VENV_DIR/bin/python" -c "import torch; assert torch.__version__ == '2.5.1+cu121'; assert torch.cuda.is_available()" >/dev/null 2>&1; then
+  if "$VENV_DIR/bin/python" -c "import torch; assert torch.__version__.split('+')[0] == '2.5.1'; assert torch.cuda.is_available(); assert (torch.version.cuda or '').startswith('12.1')" >/dev/null 2>&1; then
     TORCH_OK=true
   fi
   if [ "$TORCH_OK" = false ]; then
     info "Installing PyTorch 2.5.1 with CUDA 12.1 support..."
-    "$VENV_DIR/bin/python" -m pip install "torch==2.5.1" --index-url https://download.pytorch.org/whl/cu121
+    "$VENV_DIR/bin/python" -m pip install "torch==2.5.1+cu121" --index-url https://download.pytorch.org/whl/cu121
   else
     ok "Compatible PyTorch CUDA installation already present"
   fi
 else
   TORCH_OK=false
-  if "$VENV_DIR/bin/python" -c "import torch; assert torch.__version__ == '2.5.1'; assert torch.version.cuda is None" >/dev/null 2>&1; then
+  if "$VENV_DIR/bin/python" -c "import torch; assert torch.__version__.split('+')[0] == '2.5.1'; assert not torch.cuda.is_available(); assert torch.version.cuda is None" >/dev/null 2>&1; then
     TORCH_OK=true
   fi
   if [ "$TORCH_OK" = false ]; then
     info "Installing PyTorch 2.5.1 CPU build..."
-    "$VENV_DIR/bin/python" -m pip install "torch==2.5.1" --index-url https://download.pytorch.org/whl/cpu
+    "$VENV_DIR/bin/python" -m pip install "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
   else
     ok "Compatible PyTorch CPU installation already present"
   fi
 fi
 
-BACKEND_IMPORTS_OK=false
-if "$VENV_DIR/bin/python" -c "import fastapi, uvicorn, torch, soundfile, huggingface_hub, safetensors, aiofiles" >/dev/null 2>&1; then
-  BACKEND_IMPORTS_OK=true
+CHECKER="$ROOT_DIR/scripts/check_requirements.py"
+REQ_CHECK_OK=false
+if [ -f "$CHECKER" ] && "$VENV_DIR/bin/python" "$CHECKER" "$REQ_FILE" >/dev/null 2>&1; then
+  REQ_CHECK_OK=true
 fi
 
-if [ "$BACKEND_IMPORTS_OK" = true ] && [ "$CURRENT_REQ_HASH" = "$INSTALLED_REQ_HASH" ]; then
-  ok "Backend Python dependencies are already installed and up to date"
-elif [ "$BACKEND_IMPORTS_OK" = true ] && [ -z "$INSTALLED_REQ_HASH" ]; then
-  echo "$CURRENT_REQ_HASH" > "$REQ_STAMP"
-  ok "Verified existing backend Python packages in .venv"
+if [ "$REQ_CHECK_OK" = true ]; then
+  if [ "$CURRENT_REQ_HASH" != "$INSTALLED_REQ_HASH" ]; then
+    echo "$CURRENT_REQ_HASH" > "$REQ_STAMP"
+  fi
+  ok "Backend Python dependencies verified against backend/requirements.txt"
 else
   info "Installing remaining Python packages from backend/requirements.txt..."
   if command -v uv >/dev/null 2>&1; then
@@ -230,8 +231,11 @@ else
   else
     "$VENV_DIR/bin/python" -m pip install -r "$REQ_FILE"
   fi
+  if ! "$VENV_DIR/bin/python" "$CHECKER" "$REQ_FILE"; then
+    fail "Backend Python dependencies are still incomplete. Review the missing packages above and rerun ./install.sh."
+  fi
   echo "$CURRENT_REQ_HASH" > "$REQ_STAMP"
-  ok "Installed backend Python dependencies"
+  ok "Installed and verified backend Python dependencies"
 fi
 
 info "Checking TIGER-DnR AI audio separation model cache..."

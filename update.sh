@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# SilentTrack AI — Safe Linux Update Script
+# VideoMusicRemover AI — Safe Linux Update Script
 # Preserves .env user configuration and data/ (cached models & jobs)
 # ============================================================================
 set -euo pipefail
@@ -15,10 +15,10 @@ YELLOW="\033[1;33m"
 RESET="\033[0m"
 
 echo -e "${BOLD}============================================================${RESET}"
-echo -e "${BOLD}  SilentTrack AI — Safe Local Update${RESET}"
+echo -e "${BOLD}  VideoMusicRemover AI — Safe Local Update${RESET}"
 echo -e "${BOLD}============================================================${RESET}"
 
-# 1. Stop running SilentTrack AI processes safely
+# 1. Stop running VideoMusicRemover AI processes safely
 if [ -x "$ROOT_DIR/stop.sh" ]; then
   "$ROOT_DIR/stop.sh"
 fi
